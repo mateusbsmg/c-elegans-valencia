@@ -1,0 +1,518 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8">
+<title>C. elegans: valência negativa, valência positiva e privação alimentar</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root { --fundo:#0f1318; --painel:#181e26; --borda:#2a3440; --texto:#dfe6ee; --suave:#8a98a8;
+        --dor:#e0524a; --prazer:#e8b93a; --fome:#b060e0; --comida:#5cc86a; --verme:#f0d8b8; --ativo:#ff9a3c; }
+* { box-sizing:border-box; }
+html, body { height:100%; }
+body { margin:0; background:var(--fundo); color:var(--texto); font:12px/1.3 system-ui, Segoe UI, sans-serif;
+       display:flex; flex-direction:column; overflow:hidden; }
+header { display:flex; flex-wrap:wrap; align-items:center; gap:4px 18px; padding:5px 12px; border-bottom:1px solid var(--borda); }
+h1 { font-size:14px; margin:0; font-weight:600; }
+h1 i { font-weight:400; }
+#vida { font-size:18px; font-weight:700; font-variant-numeric:tabular-nums; }
+#vida small { font-size:11px; color:var(--suave); font-weight:400; }
+#status { color:var(--suave); flex:1 1 300px; font-size:11px; }
+.controles { display:flex; flex-wrap:wrap; gap:4px; padding:4px 12px; border-bottom:1px solid var(--borda); align-items:center; }
+button, select, input { background:#222b36; color:var(--texto); border:1px solid var(--borda); border-radius:5px; padding:3px 7px; font:inherit; cursor:pointer; }
+button:hover { border-color:#4a6078; }
+button.treino { background:#3a2a14; border-color:#8a5a20; }
+button.parar { background:#3a1a1a; border-color:#803030; }
+.sep { width:1px; height:24px; background:var(--borda); margin:0 6px; }
+main { padding:6px 12px; display:flex; flex-direction:column; gap:6px; flex:1 1 auto; min-height:0; }
+#arenas { flex:0 0 auto; }
+#arenas { display:flex; flex-wrap:wrap; gap:8px; }
+.arena { background:var(--painel); border:1px solid var(--borda); border-radius:8px; padding:6px 8px; flex:1 1 560px; min-width:0; }
+.placar { min-width:0; font-size:11.5px; display:flex; flex-direction:column; gap:0; overflow-y:auto; overflow-x:hidden; }
+.placar .linha-p { display:grid; grid-template-columns:10px 12px 1fr 42px 22px; gap:4px; align-items:center; padding:2px 3px; border-radius:3px; white-space:nowrap; }
+.placar .linha-p.dest { background:#2a3440; }
+.placar .linha-p.morto { opacity:.45; }
+.placar .pto { text-align:right; font-weight:700; font-variant-numeric:tabular-nums; }
+.placar .cbp { color:var(--suave); font-variant-numeric:tabular-nums; text-align:right; }
+.placar i { display:inline-block; width:9px; height:9px; border-radius:5px; }
+@media (max-width: 900px) { .placar { flex-basis:100%; } }
+.arena h2 { font-size:13px; margin:0 0 4px; display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+.arena h2 span { color:var(--suave); font-weight:400; font-size:11px; }
+.linha { display:flex; gap:10px; flex-wrap:wrap; }
+/* a arena ocupa a altura que sobra da tela, deixando o gráfico visível embaixo */
+/* arena em pé (o mundo 8x5 desenhado girado 90°); a altura é ajustada por ajustarAltura() */
+canvas.mundo { height:600px; width:auto; aspect-ratio: 5 / 8; background:transparent; display:block; }
+.col-esq { flex:0 0 200px; min-width:0; display:flex; flex-direction:column; gap:6px; }
+.col-esq .legenda { flex-direction:column; gap:2px; }
+.col-arena { flex:0 0 auto; }
+.lado #grafico-box { flex:1 1 auto; min-height:220px; margin-top:4px; }
+.lado { flex:1 1 260px; min-width:0; display:flex; flex-direction:column; gap:4px; }
+.barra { display:grid; grid-template-columns:112px 1fr 58px; align-items:center; gap:6px; font-size:11px; }
+.barra em { white-space:nowrap; }
+.barra div { height:9px; background:#0c1014; border-radius:6px; overflow:hidden; }
+.barra b { display:block; height:100%; width:0; border-radius:6px; transition:width .15s; }
+.barra em { font-style:normal; color:var(--suave); text-align:right; font-variant-numeric:tabular-nums; }
+.rotulo { font-size:11px; color:var(--suave); margin:1px 0; }
+canvas.neur { width:100%; height:150px; display:block; }
+canvas.musc { width:100%; height:48px; display:block; }
+.texto { font-size:11px; background:#0c1014; border-radius:5px; padding:4px 6px; color:#c8d4e0; min-height:44px; }
+.prob { display:grid; grid-template-columns:140px 1fr 34px; gap:6px; align-items:center; font-size:11px; }
+.prob div { height:8px; background:#0c1014; border-radius:5px; overflow:hidden; }
+.prob b { display:block; height:100%; background:#4a90d0; }
+.prob.escolhida span { color:#fff; font-weight:600; }
+.prob.escolhida b { background:var(--ativo); }
+#grafico-box { background:var(--painel); border:1px solid var(--borda); border-radius:8px; padding:4px 8px;
+                flex:1 1 auto; min-height:0; display:flex; flex-direction:column; }
+#grafico-area { flex:1 1 auto; min-height:60px; position:relative; }
+#grafico { position:absolute; inset:0; width:100%; height:100%; display:block; }
+#barra-prog { height:4px; background:#0c1014; border-radius:2px; overflow:hidden; margin-top:6px; }
+#barra-prog b { display:block; height:100%; width:0; background:var(--ativo); }
+.legenda { font-size:11px; color:var(--suave); display:flex; gap:14px; flex-wrap:wrap; }
+.legenda i { display:inline-block; width:18px; height:3px; vertical-align:middle; margin-right:4px; }
+#dica { position:fixed; pointer-events:none; background:#000c; padding:3px 6px; border-radius:4px; font-size:12px; display:none; }
+</style>
+</head>
+<body>
+<header>
+  <h1><i>C. elegans</i>: valência negativa, valência positiva e privação alimentar</h1>
+  <div id="vida">Dia 0 <small>de vida</small></div>
+  <div id="rodada" style="font-size:15px;font-weight:700;color:var(--ativo)"></div>
+  <div id="status">Conectando...</div>
+</header>
+<div class="controles">
+  <button class="treino" onclick="cmd({acao:'treinar', cerebro:'A', n:$('#ntreinos').value, dias:$('#ndias').value})" title="302 neurônios; estratégias evolutivas na CPU">▶ Treinar A (conectoma)</button>
+  <button class="treino" onclick="cmd({acao:'treinar', cerebro:'B', n:$('#ntreinos').value, dias:$('#ndias').value})" title="Laya + REINFORCE na placa de vídeo">▶ Treinar B (Laya)</button>
+  <label title="Quantas gerações (A) ou episódios (B) rodar antes de parar sozinho">Rodar
+    <input id="ntreinos" type="number" min="1" max="10000" value="100" style="width:58px"> vezes</label>
+  <label title="Quanto cada verme vive antes do treino aprender com a vida dele (1 dia = 2 s do corpo)">de
+    <select id="ndias">
+      <option value="30">30 dias</option><option value="60">60 dias</option><option value="90">90 dias</option>
+    </select> cada</label>
+  <span class="sep"></span>
+  <button onclick="cmd({acao:'vida', cerebros:['A-treinado','B-treinado']})">Uma vida: A × B treinados</button>
+  <button onclick="cmd({acao:'vida', cerebros:['A-instinto','A-treinado']})">A: instinto × treinado</button>
+  <button onclick="cmd({acao:'vida', cerebros:['B-original','B-treinado']})">B: original × treinado</button>
+  <span class="sep"></span>
+  <label>Velocidade
+    <select id="vel" onchange="cmd({acao:'velocidade', valor:this.value})">
+      <option value="1">1× (real)</option><option value="2">2×</option>
+      <option value="4">4×</option><option value="10">10×</option><option value="0">máxima</option>
+    </select></label>
+  <button onclick="cmd({acao:'pausar'})" id="bpausa">⏸ Pausar</button>
+  <button class="parar" onclick="cmd({acao:'parar'})">⏹ Parar</button>
+</div>
+<main>
+  <div id="arenas"></div>
+  <div id="grafico-box">
+    <div class="rotulo" id="grafico-titulo">Aprendizado</div>
+    <div id="grafico-area"><canvas id="grafico"></canvas></div>
+    <div class="legenda">
+      <span><i style="background:#4a90d0"></i>sinal de reforço médio (valência positiva − valência negativa) de cada geração</span>
+      <span><i style="background:#4a90d055"></i>melhor verme</span>
+      <span><i style="background:var(--comida)"></i>% que comeu alguma bactéria (eixo da direita)</span>
+      <span><i style="background:#e08a30"></i>eficiência do movimento (mm por unidade de contração)</span>
+    </div>
+    <div id="barra-prog"><b></b></div>
+  </div>
+</main>
+<div id="dica"></div>
+<script>
+let INFO = null, ultimo = null, suave = [];
+const COR_BACT = [[111, 208, 111], [224, 192, 96], [122, 140, 255]];   // Comamonas, Bacillus, Pseudomonas
+const $ = s => document.querySelector(s);
+
+async function cmd(c) {
+  const r = await fetch('/api/comando', {method:'POST', body: JSON.stringify(c)}).catch(() => null);
+}
+// o servidor aceita POST em qualquer caminho de /api
+async function carregarInfo() {
+  INFO = await (await fetch('/api/info')).json();
+  $('#vel').value = String(INFO.velocidade);
+}
+
+function arenaHTML(i) {
+  return `<div class="arena" id="ar${i}">
+    <h2><b class="titulo"></b><span class="sub"></span></h2>
+    <div class="linha">
+      <div class="col-esq"><div class="placar"></div>
+        <div class="legenda">
+          <span><i style="background:rgb(111,208,111);height:6px;border-radius:3px"></i><em>Comamonas</em> (melhor alimento)</span>
+          <span><i style="background:rgb(224,192,96);height:6px;border-radius:3px"></i><em>Bacillus</em> (bom, cheiro fraco)</span>
+          <span><i style="background:rgb(122,140,255);height:6px;border-radius:3px"></i><em>Pseudomonas</em> (cheira bem, patógeno: infecção intestinal)</span>
+        </div></div>
+      <div class="col-arena"><canvas class="mundo"></canvas></div>
+      <div class="lado">
+        <div class="barra"><span title="dor: parede, cheiro piorando, desconforto da privação">Valência negativa</span><div><b style="background:var(--dor)" class="bdor"></b></div><em class="vdor"></em></div>
+        <div class="barra"><span title="prazer: comer, cheiro melhorando">Valência positiva</span><div><b style="background:var(--prazer)" class="bprazer"></b></div><em class="vprazer"></em></div>
+        <div class="barra"><span title="fome: cresce exponencialmente; morte no dia 90 sem comer">Privação alimentar</span><div><b style="background:var(--fome)" class="bfome"></b></div><em class="vfome"></em></div>
+        <div class="barra"><span title="infecção intestinal por Pseudomonas (patógeno): gera valência negativa e leva à aversão aprendida">Infecção intestinal</span><div><b style="background:#7a8cff" class="bcomida"></b></div><em class="vcomida"></em></div>
+        <div class="cerebro"></div>
+        <div class="rotulo">95 músculos da parede do corpo (cabeça à esquerda): DL, DR dorsais; VL, VR ventrais</div>
+        <canvas class="musc"></canvas>
+      </div>
+    </div></div>`;
+}
+
+function ajustar(cv) {
+  const r = cv.getBoundingClientRect(), d = devicePixelRatio || 1;
+  if (cv.width !== Math.round(r.width * d) || cv.height !== Math.round(r.height * d)) {
+    cv.width = Math.round(r.width * d); cv.height = Math.round(r.height * d);
+  }
+  const g = cv.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0);
+  return [g, r.width, r.height];
+}
+
+function desenharMundo(cv, a) {
+  const [g, W, H] = ajustar(cv);
+  // arena em pé: o eixo x do mundo (8 mm) vai de cima para baixo, o eixo y (5 mm) da esquerda para a direita
+  const esc = Math.min(W / a.altura, H / a.largura);
+  const AW = a.altura * esc, AH = a.largura * esc;
+  const ox = Math.max(0, (W - AW) / 2);
+  const P = (x, y) => [ox + y * esc, x * esc];
+  g.clearRect(0, 0, W, H);
+  g.fillStyle = '#10161c'; g.fillRect(ox, 0, AW, AH);                   // fundo só dentro da arena
+  g.save(); g.beginPath(); g.rect(ox, 0, AW, AH); g.clip();
+  // bactérias: o halo é o cheiro de cada microcolônia; os bastonetes são as bactérias
+  for (const [bx, by, e] of a.bacterias || []) {
+    const [r, gg, b] = COR_BACT[e];
+    const rg = g.createRadialGradient(...P(bx, by), 0, ...P(bx, by), 0.9 * esc);
+    rg.addColorStop(0, `rgba(${r},${gg},${b},0.16)`); rg.addColorStop(1, `rgba(${r},${gg},${b},0)`);
+    g.fillStyle = rg; g.beginPath(); g.arc(...P(bx, by), 0.9 * esc, 0, 7); g.fill();
+  }
+  for (const [i, [bx, by, e, id0]] of (a.bacterias || []).entries()) {
+    const id = id0 ?? i;                          // (servidor antigo não manda a identidade: usa a ordem)
+    const [r, gg, b] = COR_BACT[e];
+    g.fillStyle = `rgb(${r},${gg},${b})`;
+    // um bastonete por bactéria, com orientação fixa (vem da identidade, não da posição)
+    const ang = (id * 2.399963) % Math.PI;
+    g.beginPath(); g.ellipse(...P(bx, by), Math.max(3, 0.05 * esc), Math.max(1.3, 0.018 * esc), ang, 0, 7); g.fill();
+  }
+  g.restore();
+  g.strokeStyle = '#3a4a58'; g.lineWidth = 2; g.strokeRect(ox + 1, 1, AW - 2, AH - 2);
+  cv._aprendendo = ultimo && ultimo.fase === 'aprendendo';
+  // os vermes (o destacado por último, mais grosso)
+  const larg = 0.07 * esc;
+  const ordem = a.vermes.map((v, i) => i).filter(i => i !== a.destaque).concat([a.destaque]);
+  for (const i of ordem) {
+    const v = a.vermes[i], dest = i === a.destaque;
+    const p = v.p;
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    g.strokeStyle = !v.vivo ? '#555' : v.selvagem ? 'rgba(255,255,255,0.8)' : v.cor != null ? `hsla(${v.cor},70%,68%,${v.elite ? 0.85 : 0.45})`
+                  : (v.comendo ? 'rgba(150,230,150,0.55)' : 'rgba(220,200,170,0.35)');
+    if (dest) g.strokeStyle = v.vivo ? '#f0d8b8' : '#666';
+    g.lineWidth = dest ? larg : Math.max(1.5, larg * (v.elite ? 0.8 : 0.55));
+    g.beginPath(); g.moveTo(...P(p[0][0], p[0][1]));
+    for (const q of p) g.lineTo(...P(q[0], q[1]));
+    g.stroke();
+    if (dest) {
+      g.fillStyle = '#ff9a3c'; g.beginPath(); g.arc(...P(p[0][0], p[0][1]), larg * 0.45, 0, 7); g.fill();
+    }
+    if (v.comendo && v.vivo) {                   // comendo: brilho verde pulsando na cabeça
+      const pulso = 0.6 + 0.4 * Math.sin(performance.now() / 120);
+      g.strokeStyle = `rgba(120,255,140,${0.9 * pulso})`; g.lineWidth = 2.5;
+      g.beginPath(); g.arc(...P(p[0][0], p[0][1]), larg * (1.6 + 0.5 * pulso), 0, 7); g.stroke();
+    }
+  }
+  if (cv._aprendendo) {
+    const CX = ox + AW / 2, CY = AH / 2;
+    const pr = ultimo.progresso || 0;
+    g.fillStyle = 'rgba(10,14,20,0.72)'; g.fillRect(ox, 0, AW, AH);
+    g.fillStyle = '#ff9a3c'; g.font = '600 15px system-ui'; g.textAlign = 'center';
+    g.fillText('Fim do episódio:', CX, CY - 40); g.fillText('aprendendo com o que viveu', CX, CY - 20);
+    g.font = '14px system-ui'; g.fillStyle = '#dfe6ee';
+    g.fillText('ajustando os pesos do Laya', CX, CY + 2); g.fillText(`e dos músculos… ${(100 * pr).toFixed(0)}%`, CX, CY + 18);
+    g.fillText('depois recomeça no dia 0', CX, CY + 36);
+    const BW = Math.min(300, AW - 40);
+    g.fillStyle = '#26303b'; g.fillRect(CX - BW / 2, CY + 44, BW, 8);
+    g.fillStyle = '#ff9a3c'; g.fillRect(CX - BW / 2, CY + 44, BW * pr, 8);
+    g.textAlign = 'start';
+  }
+}
+
+function grupoNeuronios() {
+  const ordem = ['sensorial', 'interneuronio', 'motor', 'faringe', 'sexo'];
+  const nomes = {sensorial:'sensoriais', interneuronio:'interneurônios', motor:'motores', faringe:'faringe', sexo:'postura de ovos'};
+  const grupos = ordem.map(c => ({c, nome:nomes[c], idx: INFO.categorias.map((x, i) => x === c ? i : -1).filter(i => i >= 0)}));
+  return grupos;
+}
+
+function desenharNeuronios(cv, act) {
+  const [g, W, H] = ajustar(cv);
+  g.clearRect(0, 0, W, H);
+  const grupos = grupoNeuronios(), col = 28, r = Math.min(W / col / 2.3, 3.2);
+  const dx = W / col; let y = 10; cv._pos = [];
+  g.font = '10px system-ui'; g.fillStyle = '#8a98a8';
+  for (const gr of grupos) {
+    g.fillStyle = '#8a98a8'; g.fillText(`${gr.nome} (${gr.idx.length})`, 2, y); y += 5;
+    gr.idx.forEach((ni, k) => {
+      const x = dx * (k % col) + dx / 2, yy = y + Math.floor(k / col) * (2 * r + 2) + r;
+      const v = act ? act[ni] : 0;
+      g.fillStyle = v > 0.02 ? `rgba(255,${Math.round(154 + 80 * (1 - v))},60,${0.25 + 0.75 * v})` : '#26303b';
+      g.beginPath(); g.arc(x, yy, r, 0, 7); g.fill();
+      cv._pos.push([x, yy, ni]);
+    });
+    y += Math.ceil(gr.idx.length / col) * (2 * r + 2) + 10;
+  }
+  cv.style.height = (y) + 'px';
+}
+
+function desenharMusculos(cv, m) {
+  const [g, W, H] = ajustar(cv);
+  g.clearRect(0, 0, W, H);
+  const linhas = ['DL', 'DR', 'VL', 'VR'], lx = 22, cw = (W - lx) / 24, ch = (H - 4) / 4;
+  const val = (l, f) => {
+    if (!m) return 0;
+    if (Array.isArray(m)) {
+      const nome = (l[0] === 'D' ? 'dBWM' : 'vBWM') + l[1] + (f + 1);
+      const i = INFO.musculos.indexOf(nome);
+      return i < 0 ? null : m[i];
+    }
+    return (l[0] === 'D' ? m.dorsal : m.ventral)[f];
+  };
+  g.font = '10px system-ui';
+  linhas.forEach((l, j) => {
+    g.fillStyle = '#8a98a8'; g.fillText(l, 2, j * ch + ch * 0.75);
+    for (let f = 0; f < 24; f++) {
+      const v = val(l, f);
+      g.fillStyle = v === null ? 'transparent' : `rgba(230,80,70,${0.08 + 0.92 * v})`;
+      g.fillRect(lx + f * cw + 1, j * ch + 1, cw - 2, ch - 2);
+    }
+  });
+}
+
+function atualizarArena(i, a) {
+  let el = $('#ar' + i);
+  if (!el) { $('#arenas').insertAdjacentHTML('beforeend', arenaHTML(i)); el = $('#ar' + i); setTimeout(ajustarAltura, 0); }
+  el.querySelector('.titulo').textContent = a.titulo;
+  const comendo = a.vermes.filter(v => v.comendo && v.vivo).length;
+  const sub = a.total > 1 ? `${a.vermes.length} vermes · ${a.chegaram} já comeram · ${comendo} comendo agora · destacado: ${a.legenda_destaque}`
+                          : (a.vivo ? `reforço acumulado ${a.recompensa.toFixed(1)} · ${a.manchas} bactérias comidas (C/B/P: ${(a.comidas_esp || []).join('/')})` : 'morte por inanição');
+  el.querySelector('.sub').textContent = sub;
+  desenharMundo(el.querySelector('canvas.mundo'), a);
+  // barras (dor e prazer suavizados para dar para ver)
+  const s = suave[i] = suave[i] || {dor:0, prazer:0};
+  s.dor = a.vivo ? 0.85 * s.dor + 0.15 * Math.min(1, a.dor * 20) : 1;   // morte = valência negativa máxima
+  s.prazer = 0.85 * s.prazer + 0.15 * Math.min(1, a.prazer * 8);
+  el.querySelector('.bdor').style.width = (100 * s.dor) + '%';
+  el.querySelector('.vdor').textContent = a.vivo ? (100 * s.dor).toFixed(0) + '%' : 'MORTE';
+  el.querySelector('.bprazer').style.width = (100 * s.prazer) + '%';
+  el.querySelector('.vprazer').textContent = (100 * s.prazer).toFixed(0) + '%';
+  el.querySelector('.bfome').style.width = (100 * a.fome) + '%';
+  el.querySelector('.vfome').textContent = `${a.dias_sem_comer.toFixed(0)} dias`;
+  el.querySelector('.bcomida').style.width = Math.min(100, 50 * a.doente) + '%';
+  el.querySelector('.vcomida').textContent = a.comidas_esp ? a.comidas_esp.join('/') : '';
+  const cb = el.querySelector('.cerebro');
+  if (a.neuronios) {
+    if (!cb._tipo || cb._tipo !== 'A') {
+      cb._tipo = 'A';
+      cb.innerHTML = '<div class="rotulo">302 neurônios (aceso = ativo) — passe o mouse para ver o nome</div><canvas class="neur"></canvas>';
+      const cv = cb.querySelector('canvas');
+      cv.onmousemove = e => {
+        const r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+        let best = null, bd = 64;
+        for (const [px, py, ni] of cv._pos || []) { const d = (px - x) ** 2 + (py - y) ** 2; if (d < bd) { bd = d; best = ni; } }
+        const dica = $('#dica');
+        if (best === null) { dica.style.display = 'none'; return; }
+        dica.style.display = 'block'; dica.style.left = (e.clientX + 12) + 'px'; dica.style.top = (e.clientY + 8) + 'px';
+        dica.textContent = `${INFO.neuronios[best]} (${INFO.categorias[best]}): ${(cv._act?.[best] ?? 0).toFixed(2)}`;
+      };
+      cv.onmouseleave = () => $('#dica').style.display = 'none';
+    }
+    const cv = cb.querySelector('canvas'); cv._act = a.neuronios;
+    desenharNeuronios(cv, a.neuronios);
+  } else if (a.probs) {
+    if (cb._tipo !== 'B') {
+      cb._tipo = 'B';
+      cb.innerHTML = '<div class="rotulo">O que o Laya lê (a cada 1 s do corpo)</div><div class="texto"></div>' +
+        '<div class="rotulo">Chances que o Laya dá para cada ação</div><div class="probs"></div>';
+    }
+    cb.querySelector('.texto').textContent = a.texto || '...';
+    let sd = cb.querySelector('.sentidos');
+    if (!sd) { cb.querySelector('.texto').insertAdjacentHTML('beforebegin', '<div class="rotulo sentidos"></div>'); sd = cb.querySelector('.sentidos'); }
+    sd.innerHTML = a.sentidos ? `Sentidos que este verme expressa (genes): <b style="color:#dfe6ee">${a.sentidos.join(', ') || 'nenhum'}</b>` +
+      (a.sentidos_pop ? `<br>Na população: ${Object.entries(a.sentidos_pop).map(([k, v]) => `${k.split(' (')[0]} ${v}/16`).join(' · ')}` : '') : '';
+    let sdiv = cb.querySelector('.sonda');
+    if (!sdiv) { cb.insertAdjacentHTML('beforeend', '<div class="rotulo sonda"></div>'); sdiv = cb.querySelector('.sonda'); }
+    const sn = a.sonda;
+    if (sn && sn.original) {
+      const at = sn.atual, fmt = v => v.toLocaleString('pt-BR', {maximumFractionDigits: 1});
+      const escolha = r => { const k = r.indexOf(Math.max(...r)); return `${sn.acoes[k]} ${Math.round(100 * r[k])}%`; };
+      sdiv.innerHTML = `<b style="color:#dfe6ee">Teste de discernimento</b> (quanto as chances mudam entre situações): ` +
+        `original <b>${fmt(sn.original.diferenciacao)} pp</b> · atual <b style="color:${at && at.diferenciacao < 3 ? '#e0524a' : '#5cc86a'}">${at ? fmt(at.diferenciacao) + ' pp' : '—'}</b>` +
+        (sn.episodio ? ` (episódio ${sn.episodio})` : '') +
+        '<br>' + Object.keys(sn.original.respostas).map(k => `${k}: <span style="color:#dfe6ee">${escolha((at && at.respostas[k]) || sn.original.respostas[k])}</span>`).join(' · ');
+    }
+    cb.querySelector('.probs').innerHTML = a.acoes.map((n, k) =>
+      `<div class="prob ${k === a.acao ? 'escolhida' : ''}"><span>${n}</span><div><b style="width:${100 * a.probs[k]}%"></b></div><em>${(100 * a.probs[k]).toFixed(0)}%</em></div>`).join('');
+  }
+  desenharMusculos(el.querySelector('canvas.musc'), a.musculos);
+  desenharPlacar(el.querySelector('.placar'), a);
+}
+
+// pontuação da comida: Comamonas +2 (melhor), Bacillus +1 (bom), Pseudomonas -1 (patógeno)
+const PONTOS_BACT = [2, 1, -1];
+function desenharPlacar(el, a) {
+  if (!a.placar || a.placar.length < 2) { el.style.display = 'none'; return; }
+  el.style.display = '';
+  const linhas = a.placar.map((p, i) => ({...p, i, pontos: p.comidas.reduce((s, n, k) => s + n * PONTOS_BACT[k], 0)}))
+    .sort((x, y) => y.pontos - x.pontos || x.i - y.i);
+  el.innerHTML = '<div class="rotulo">Placar da comida: <b style="color:rgb(111,208,111)">C +2</b> · ' +
+    '<b style="color:rgb(224,192,96)">B +1</b> · <b style="color:rgb(122,140,255)">P −1</b></div>' +
+    linhas.map((p, pos) => {
+      const cor = p.selvagem ? '#fff' : p.cor != null ? `hsl(${p.cor},70%,68%)` : '#f0d8b8';
+      const selo = (p.retorno ? ' ↺' : '') + (p.elite ? ' ★' : p.selvagem ? ' (selv.)' : '');
+      return `<div class="linha-p ${p.i === a.destaque ? 'dest' : ''} ${p.vivo ? '' : 'morto'}" title="comeu ${p.comidas[0]} Comamonas, ${p.comidas[1]} Bacillus, ${p.comidas[2]} Pseudomonas${p.vitorias ? ' · ' + p.vitorias + ' vitórias' : ''}">
+        <i style="background:${cor}"></i><span style="color:#8a98a8" title="ilha">${p.ilha || ''}</span><span>${pos + 1}. ${p.id}${selo}</span>
+        <span class="cbp">${p.comidas.join('/')}</span><span class="pto" style="color:${p.pontos < 0 ? '#e0524a' : '#dfe6ee'}">${p.pontos}</span></div>`;
+    }).join('') + '<div class="rotulo" style="margin-top:3px">A/B/C ilha · ★ elite · ↺ voltou do hall da fama · (selv.) selvagem · C/B/P comidas</div>';
+}
+
+function desenharGrafico(hist, titulo) {
+  const cv = $('#grafico'), [g, W, H] = ajustar(cv);
+  g.clearRect(0, 0, W, H);
+  $('#grafico-titulo').textContent = titulo;
+  if (!hist || !hist.length) { g.fillStyle = '#8a98a8'; g.fillText('Ainda não há gerações treinadas.', 10, 20); return; }
+  const m = 36, mD = 150, w = W - m - mD, h = H - 26;       // mD: espaço à direita para os valores atuais
+  const med = hist.map(x => x.media), mel = hist.map(x => x.melhor), che = hist.map(x => x.chegaram);
+  let lo = Math.min(...med), hi = Math.max(...mel);
+  if (hi - lo < 1) hi = lo + 1;
+  const X = k => m + (hist.length === 1 ? w / 2 : k * w / (hist.length - 1));
+  const Y = v => 6 + h - (v - lo) / (hi - lo) * h;
+  g.strokeStyle = '#2a3440'; g.lineWidth = 1;
+  g.beginPath(); g.moveTo(m, Y(0)); g.lineTo(m + w, Y(0)); g.stroke();
+  const linha = (vals, cor, yf, lw) => {
+    g.strokeStyle = cor; g.lineWidth = lw; g.beginPath();
+    vals.forEach((v, k) => k ? g.lineTo(X(k), yf(v)) : g.moveTo(X(k), yf(v))); g.stroke();
+  };
+  linha(mel, '#4a90d055', Y, 1);
+  // média móvel da recompensa média para ver a tendência
+  const mm = med.map((v, k) => { const a = med.slice(Math.max(0, k - 9), k + 1); return a.reduce((s, x) => s + x, 0) / a.length; });
+  linha(med, '#4a90d066', Y, 1); linha(mm, '#4a90d0', Y, 2.5);
+  linha(che, '#5cc86a', v => 6 + h - v * h, 2);
+  const ef = hist.map(x => x.eficiencia).filter(v => v);
+  let yEf = null;
+  if (ef.length > 1) {
+    const emax = Math.max(...ef) * 1.1, off = hist.length - ef.length;
+    g.strokeStyle = '#e08a30'; g.lineWidth = 2; g.beginPath();
+    ef.forEach((v, k) => { const px = X(k + off), py = 6 + h - v / emax * h; k ? g.lineTo(px, py) : g.moveTo(px, py); });
+    g.stroke();
+    yEf = 6 + h - ef[ef.length - 1] / emax * h;
+  }
+  g.fillStyle = '#8a98a8'; g.font = '11px system-ui';
+  g.fillText(hi.toFixed(0), 2, 14); g.fillText(lo.toFixed(0), 2, h + 4);
+  g.fillText('100%', m + w + 4, 14); g.fillText('0%', m + w + 4, h + 4);
+  g.fillText(`${hist.length} gerações`, m, H - 4);
+  // valores atuais na ponta de cada linha (afastados para não se sobreporem)
+  const n = hist.length - 1, fmt = v => v.toLocaleString('pt-BR', {minimumFractionDigits: 1, maximumFractionDigits: 1});
+  const rot = [
+    {y: Y(mm[n]), t: `média (10): ${fmt(mm[n])}`, cor: '#4a90d0', neg: true},
+    {y: Y(med[n]), t: `última: ${fmt(med[n])}`, cor: '#7fb2e6'},
+    {y: Y(mel[n]), t: `melhor verme: ${fmt(mel[n])}`, cor: '#6a7f96'},
+    {y: 6 + h - che[n] * h, t: `comeram: ${Math.round(100 * che[n])}%`, cor: '#5cc86a', neg: true},
+  ];
+  if (yEf !== null) rot.push({y: yEf, t: `eficiência: ${ef[ef.length - 1].toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`, cor: '#e08a30', neg: true});
+  rot.sort((a, b) => a.y - b.y);
+  for (let i = 1; i < rot.length; i++) rot[i].y = Math.max(rot[i].y, rot[i - 1].y + 13);
+  const exc = rot[rot.length - 1].y - (h + 6);
+  if (exc > 0) rot.forEach(r => r.y -= exc);
+  for (let i = rot.length - 2; i >= 0; i--) rot[i].y = Math.min(rot[i].y, rot[i + 1].y - 13);
+  const x0 = m + w + 36;
+  for (const r of rot) {
+    g.fillStyle = r.cor; g.font = (r.neg ? '600 ' : '') + '11px system-ui';
+    g.fillText(r.t, x0, Math.max(10, r.y) + 4);
+  }
+}
+
+let nArenas = 0;
+function mostrar(s) {
+  ultimo = s;
+  $('#status').textContent = s.status || '';
+  $('#rodada').innerHTML = s.sessao
+    ? `Rodada ${s.sessao[0]} de ${s.sessao[1]} <small style="font-size:11px;color:var(--suave);font-weight:400">· ${s.total_salvo} salvas no total</small>` : '';
+  const arenas = s.arenas || [];
+  if (arenas.length !== nArenas) { $('#arenas').innerHTML = ''; suave = []; nArenas = arenas.length; }
+  arenas.forEach((a, i) => atualizarArena(i, a));
+  if (arenas.length) {
+    const a = arenas[0];
+    const vida = s.modo === 'treino' ? `Dia ${a.dia.toFixed(1)} <small>do episódio · geração ${s.geracao}</small>`
+                                     : `Dia ${a.dia.toFixed(1)} <small>de vida · inanição com 90 dias de privação alimentar</small>`;
+    $('#vida').innerHTML = vida;
+  }
+  $('#barra-prog b').style.width = (100 * (s.progresso || 0)) + '%';
+  if (s.modo === 'treino') {
+    const h = (s.historico || []).slice(-1)[0];
+    if (JSON.stringify(h) !== mostrar._h) {       // o gráfico só muda quando termina um episódio
+      mostrar._h = JSON.stringify(h);
+      desenharGrafico(s.historico, s.cerebro === 'A'
+        ? 'Aprendizado do cérebro A (conectoma): cada ponto é uma geração'
+        : 'Aprendizado do cérebro B (Laya + 95 músculos): cada ponto é um episódio' + (h && h.velocidade
+            ? ` · último: nariz ${h.velocidade.toFixed(2)} mm/s` + (h.eficiencia ? `, eficiência ${h.eficiencia.toFixed(2)} mm por unidade de contração` : '')
+              + (h.campeao ? `, campeão ${h.campeao.id} (média de ${h.campeao.vidas || 1} vidas)` : '') : ''));
+    }
+  } else if (INFO && !mostrar._g) { mostrar._g = 1; desenharGrafico(INFO.historico_A, 'Aprendizado salvo do cérebro A (conectoma)'); }
+}
+
+// ---- reprodução suave: o servidor manda quadros com o tempo do corpo (t); a página guarda um
+// "colchão" de ~0,35 s e toca em ritmo constante, escondendo as esperas do Laya pensar ----
+let buf = [], seqv = 0, meta = {velocidade: 4}, pt = null, epAtual = null, tAnt = null;
+async function buscar() {
+  try {
+    const r = await (await fetch('/api/quadros?desde=' + seqv)).json();
+    if (r.seq < seqv) buf = [];                     // o servidor reiniciou
+    seqv = r.seq; meta = r;
+    for (const q of r.quadros) buf.push(q);
+    if (buf.length > 600) buf = buf.slice(-300);
+    $('#bpausa').textContent = r.pausado ? '▶ Continuar' : '⏸ Pausar';
+  } catch (e) { $('#status').textContent = 'Servidor desligado? ' + e; }
+  setTimeout(buscar, 80);
+}
+function tocar(ts) {
+  const dt = tAnt === null ? 0 : Math.min(0.25, (ts - tAnt) / 1000); tAnt = ts;
+  const vel = Number(meta.velocidade) || 0;
+  // quadros sem tempo (fase de aprendizado, avisos): mostra na hora
+  while (buf.length && buf[0].t === undefined) { mostrar(buf.shift()); pt = null; epAtual = null; }
+  if (buf.length) {
+    if (vel <= 0) {                                 // velocidade máxima: sempre o mais recente
+      const ult = buf[buf.length - 1]; buf = [];
+      if (ult.t !== undefined) mostrar(ult);
+    } else {
+      const colchao = 0.35 * vel;                   // em segundos do corpo
+      if (buf[0].ep !== epAtual) { epAtual = buf[0].ep; pt = buf[0].t - colchao; }
+      pt += dt * vel;
+      let ultEp = null;
+      for (const q of buf) if (q.ep === epAtual && q.t !== undefined) ultEp = q;
+      if (ultEp && ultEp.t - pt > 2 * colchao + 1) pt = ultEp.t - colchao;   // ficou muito para trás: pula
+      let q = null;
+      while (buf.length && buf[0].ep === epAtual && buf[0].t !== undefined && buf[0].t <= pt) q = buf.shift();
+      if (q) mostrar(q);
+      if (!buf.some(x => x.ep === epAtual) && q) pt = q.t - colchao;       // acabou o colchão: refaz (uma pausa curta)
+    }
+  }
+  requestAnimationFrame(tocar);
+}
+// a arena em pé ocupa a altura toda da janela; com uma arena só, o gráfico fica na coluna da direita
+const GRAFICO_MIN = 190;
+function ajustarAltura() {
+  const cvs = [...document.querySelectorAll('canvas.mundo')];
+  const box = $('#grafico-box'), main = document.querySelector('main');
+  const umaArena = cvs.length === 1;
+  if (umaArena) { const lado = $('#ar0 .lado'); if (lado && box.parentNode !== lado) lado.appendChild(box); }
+  else if (box.parentNode !== main) main.appendChild(box);
+  if (!cvs.length) return;
+  const pm = parseFloat(getComputedStyle(main).paddingBottom);
+  for (const cv of cvs) {
+    const arena = cv.closest('.arena');
+    const topo = cv.getBoundingClientRect().top;
+    const borda = parseFloat(getComputedStyle(arena).paddingBottom) + 2;
+    const livre = innerHeight - topo - borda - pm - (umaArena ? 0 : GRAFICO_MIN + 8);
+    const h = Math.max(300, Math.floor(livre));
+    cv.style.height = h + 'px';
+    const pl = arena.querySelector('.placar'); if (pl) pl.style.maxHeight = (h - 150) + 'px';
+  }
+  if (ultimo && ultimo.historico) mostrar._h = null;             // redesenha o gráfico no novo tamanho
+}
+addEventListener('resize', ajustarAltura);
+setInterval(ajustarAltura, 1000);
+carregarInfo().then(() => { buscar(); requestAnimationFrame(tocar); });
+</script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+c-elegans-valencia
+Copyright 2026 Mateus Silva
+
+Este projeto usa trabalhos de terceiros:
+
+- Laya (Convai Innovations) — Apache License 2.0
+  https://github.com/NandhaKishorM/laya · https://huggingface.co/convaiinnovations/laya
+- Dados do conectoma (dados/): OpenWorm c302 — MIT License, Copyright (c) OpenWorm
+  https://github.com/openworm/c302
+  Matrizes de conectividade de Cook S. J. et al. (2019), Nature 571:63–71 (material suplementar SI 5),
+  e tabelas de neurotransmissores derivadas de Varshney L. R. et al. (2011), distribuídas pelo OpenWorm.
+
+As referências científicas usadas no modelo estão em referencias/01_biologia_do_c_elegans.md.
