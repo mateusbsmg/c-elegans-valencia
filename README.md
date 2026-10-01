@@ -137,6 +137,15 @@ As referências completas estão em [`referencias/01_biologia_do_c_elegans.md`](
 - Salimans T. et al. (2017). *Evolution strategies as a scalable alternative to reinforcement learning.* arXiv.
 - OpenWorm / c302 — <https://github.com/openworm/c302> (dados do conectoma).
 
+## A série
+
+Quatro experiências com IAs de decisão rodando numa placa de vídeo doméstica:
+
+1. [**NanoJev ao vivo**](https://github.com/mateusbsmg/nanojev-snake-labirinto-ao-vivo) — Snake e Labirinto jogados em tempo real por um modelo de decisão local.
+2. [**NanoJev aprende Q\*bert**](https://github.com/mateusbsmg/nanojev-qbert) — um professor em Python, 30 mil exemplos e ~15 h de treino numa RTX 3060.
+3. [**Laya aprende Q\*bert**](https://github.com/mateusbsmg/laya-qbert) — a mesma tarefa com outra IA: 20/20 fases no nível 1, com 1 h de treino.
+4. **C. elegans: valência e evolução** (este repositório) — 302 neurônios, dor, prazer, fome, aprendizado por reforço e algoritmo genético ao vivo.
+
 ## Créditos e licença
 
 - Dados do conectoma: **OpenWorm** (c302, licença MIT) e Cook et al. (2019).
